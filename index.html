@@ -1648,7 +1648,7 @@ function importarBaseSCOUTPRO(db){
       let target=STATE.hojasRendimiento.find(h=>h.nombre===hoja);
       if(!target){target={nombre:hoja,filas:[]};STATE.hojasRendimiento.push(target);}
       const vals=Array.isArray(item.r)?item.r:[];
-      const fila={'Jugador':n,'Posición':item.pos,'Poscion':item.pos,'Club':item.club,'Progreso':item.prog,'PROM.':null};
+      const nums=vals.map(v=>Number(v)).filter(v=>Number.isFinite(v));const prom=nums.length?nums.reduce((a,b)=>a+b,0)/nums.length:null;const fila={'Jugador':n,'Posición':item.pos,'Poscion':item.pos,'Club':item.club,'Progreso':item.prog,'PROM.':prom};
       vals.forEach((v,i)=>{fila['Dato '+(i+1)]=v});
       target.filas.push(fila);
     });
