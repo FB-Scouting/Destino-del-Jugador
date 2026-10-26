@@ -1613,6 +1613,63 @@ function dibujarConectores(contenedorId, svgId, selectorFilas, colorFn){
   });
   svg.innerHTML = paths;
 }
+
+/* Integración opcional con SCOUTPRO: recibe la Base Madre ya cargada en la nube.
+   La carga manual por Excel se mantiene como alternativa independiente. */
+function importarBaseSCOUTPRO(db){
+  if(!db || !Array.isArray(db.players) || !db.st || !db.clubs) throw new Error('La Base Madre recibida no tiene la estructura esperada.');
+  const nombre=(v)=>String(v??'').trim();
+  STATE.wb=null;
+  STATE.jugadores=db.players.map(p=>({
+    'Jugador':p.n,'Fecha de Nacimiento':p.fn,'Edad':p.ed,'Nacionalidad':p.nac,
+    'Posición Principal':p.pos,'Posición Secundaria':p.pos2,'Competencia':p.comp,
+    'Club':p.club,'Altura':p.alt,'Pie hábil':p.pie,'Valor de Mercado':p.vm,
+    'Representante':p.rep,'Fin de Contrato':p.fc,'Transfermarkt':p.tm,
+    '__tier':p.tier
+  })).filter(p=>p['Jugador']);
+  STATE.estadisticas={};
+  Object.entries(db.st||{}).forEach(([n,v])=>{
+    STATE.estadisticas[normalizarNombre(n)]={
+      'Jugador':n,'Club':v.club,'PJ':v.pj,'Minutos':v.min,'Goles':v.g,'Asistencias':v.a,
+      'Pases Precisos %':v.pp,'Duelos Totales%':v.du,'Aereos %':v.ae,
+      'Intercepciones':v.ic,'Despejes':v.de,'Xg':v.xg,'Xa':v.xa,
+      'Paradas':v.pa,'Amarillas':v.am,'Rojas':v.ro
+    };
+  });
+  STATE.clubes=(db.clubs||[]).map(c=>({
+    club:c.c,liga:c.l,pais:c.p,estilo:c.e,escudo:c.u,
+    nivelLiga:parseFloat(c.nl)||0,nivelClub:parseFloat(c.nc)||0
+  })).filter(c=>c.club);
+  const compNames={LP:'Liga Profesional - 2 da parte',PN:'Primera Nacional',PB:'Primera B Metro',TP:'Torneo Proyeccion'};
+  STATE.hojasRendimiento=[];
+  Object.entries(db.seg||{}).forEach(([n,items])=>{
+    (items||[]).forEach(item=>{
+      const hoja=compNames[item.k]||item.k||'Rendimiento';
+      let target=STATE.hojasRendimiento.find(h=>h.nombre===hoja);
+      if(!target){target={nombre:hoja,filas:[]};STATE.hojasRendimiento.push(target);}
+      const vals=Array.isArray(item.r)?item.r:[];
+      const fila={'Jugador':n,'Posición':item.pos,'Poscion':item.pos,'Club':item.club,'Progreso':item.prog,'PROM.':null};
+      vals.forEach((v,i)=>{fila['Dato '+(i+1)]=v});
+      target.filas.push(fila);
+    });
+  });
+  if(!STATE.jugadores.length) throw new Error('La Base Madre no contiene jugadores.');
+  document.getElementById('estadoCarga').innerHTML='<div class="estado-carga">✓ Base Madre de SCOUTPRO conectada: '+STATE.jugadores.length+' jugadores, '+STATE.clubes.length+' clubes objetivo y '+STATE.hojasRendimiento.length+' grupos de rendimiento. No hace falta subir el Excel.</div>';
+  document.getElementById('mensajeInicial').style.display='none';
+  document.getElementById('panelModo').style.display='block';
+  document.getElementById('panelJugador').style.display='block';
+  poblarSelectJugadores();poblarSelectClubes();poblarDatalistJugadores();
+  document.getElementById('inputExcel').disabled=true;
+  document.getElementById('btnCargar').disabled=true;
+}
+window.addEventListener('message',event=>{
+  if(event.origin!=='https://fb-scouting.github.io') return;
+  const msg=event.data;
+  if(!msg||msg.type!=='scoutpro:base-madre') return;
+  try{importarBaseSCOUTPRO(msg.db);window.parent.postMessage({type:'scoutpro:matching-ready',players:STATE.jugadores.length},event.origin)}
+  catch(err){document.getElementById('estadoCarga').innerHTML='<div class="estado-error">No se pudo conectar la Base Madre: '+String(err.message||err)+'</div>'}
+});
+
 </script>
 </body>
 </html>
